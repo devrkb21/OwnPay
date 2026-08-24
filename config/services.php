@@ -177,6 +177,24 @@ return static function (\OwnPay\Container $c): void {
         );
     });
 
+    $c->singleton(\OwnPay\Service\System\DocumentationRegistry::class, static function (\OwnPay\Container $c): \OwnPay\Service\System\DocumentationRegistry {
+        $appCfg = ensureArray($c->get('config.app'));
+        $paths = ensureArray($appCfg['paths'] ?? null);
+        $baseUrlRaw = $_ENV['DOCS_URL'] ?? getenv('DOCS_URL') ?: 'https://ownpay.org/docs';
+        $baseUrl = is_string($baseUrlRaw) ? $baseUrlRaw : 'https://ownpay.org/docs';
+        $manifestUrl = $appCfg['docs_manifest_url'] ?? '';
+        $timeout = $appCfg['docs_manifest_timeout'] ?? 3;
+        $cacheTtl = $appCfg['docs_manifest_cache_ttl'] ?? 86400;
+        return new \OwnPay\Service\System\DocumentationRegistry(
+            ensureString($paths['docs_manifest'] ?? ''),
+            $baseUrl,
+            ensureType($c->get(\OwnPay\Cache\CacheInterface::class), \OwnPay\Cache\CacheInterface::class),
+            is_string($manifestUrl) ? $manifestUrl : '',
+            is_int($timeout) ? $timeout : 3,
+            is_int($cacheTtl) ? $cacheTtl : 86400
+        );
+    });
+
     // --- Queue
     $c->singleton(\OwnPay\Queue\QueueInterface::class, static function (\OwnPay\Container $c): \OwnPay\Queue\QueueInterface {
         $appCfg = ensureArray($c->get('config.app'));

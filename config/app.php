@@ -27,6 +27,15 @@ return [
     'debug' => filter_var(($_ENV['APP_DEBUG'] ?? getenv('APP_DEBUG')) ?: 'false', FILTER_VALIDATE_BOOLEAN),
     'url'   => ($_ENV['APP_URL'] ?? getenv('APP_URL')) ?: '',
 
+    // Documentation can be served remotely and falls back to the bundled manifest.
+    'docs_manifest_url' => ($_ENV['DOCS_MANIFEST_URL'] ?? getenv('DOCS_MANIFEST_URL')) ?: 'https://ownpay.org/docs/docs-manifest.json',
+    'docs_manifest_timeout' => is_numeric($_ENV['DOCS_MANIFEST_TIMEOUT'] ?? getenv('DOCS_MANIFEST_TIMEOUT'))
+        ? max(1, (int) ($_ENV['DOCS_MANIFEST_TIMEOUT'] ?? getenv('DOCS_MANIFEST_TIMEOUT')))
+        : 3,
+    'docs_manifest_cache_ttl' => is_numeric($_ENV['DOCS_MANIFEST_CACHE_TTL'] ?? getenv('DOCS_MANIFEST_CACHE_TTL'))
+        ? max(60, (int) ($_ENV['DOCS_MANIFEST_CACHE_TTL'] ?? getenv('DOCS_MANIFEST_CACHE_TTL')))
+        : 86400,
+
     // System-wide timezone configuration
     'timezone' => ($_ENV['APP_TIMEZONE'] ?? getenv('APP_TIMEZONE')) ?: 'Asia/Dhaka',
 
@@ -47,6 +56,7 @@ return [
         'backups'   => dirname(__DIR__) . '/storage/backups',
         'temp'      => dirname(__DIR__) . '/storage/temp',
         'plugins'   => dirname(__DIR__) . '/storage/plugins',
+        'docs_manifest' => dirname(__DIR__) . '/.github/scripts/docs-manifest.json',
     ],
 
     // Default route paths (fallback configurations)

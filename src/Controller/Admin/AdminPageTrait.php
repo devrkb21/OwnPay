@@ -122,52 +122,23 @@ trait AdminPageTrait
             }
         }
 
-        // Contextual Documentation URL Mapping:
-        // Maps the active administrative view or feature domain to its corresponding
-        // section in the official OwnPay Documentation (https://ownpay.org/docs).
-        // If an unmapped page is accessed, gracefully falls back to the documentation index.
+        // Resolve contextual documentation from the deployed manifest. The manifest keeps
+        // brand and global-view mappings separate without requiring controller changes.
         $activePage = is_string($data['active_page'] ?? null) ? (string) $data['active_page'] : '';
-        $docMap = [
-            'dashboard'            => 'dashboard',
-            'transactions'         => 'payments',
-            'payment-intents'      => 'payments',
-            'refunds'              => 'refunds',
-            'invoices'             => 'invoices',
-            'payment_links'        => 'payment-links',
-            'payment-links'        => 'payment-links',
-            'disputes'             => 'disputes',
-            'customers'            => 'customers',
-            'gateways'             => 'gateways',
-            'fee-rules'            => 'gateways',
-            'staff'                => 'staff',
-            'roles'                => 'roles',
-            'brands'               => 'brands',
-            'domains'              => 'domains',
-            'settings'             => 'settings',
-            'developer'            => 'developers',
-            'api_keys'             => 'api-keys',
-            'api-keys'             => 'api-keys',
-            'webhooks'             => 'webhooks',
-            'webhook_events'       => 'webhooks',
-            'gateway_webhooks'     => 'webhooks',
-            'sms_center'           => 'sms',
-            'sms-center'           => 'sms',
-            'sms-data'             => 'sms',
-            'devices'              => 'devices',
-            'push-logs'            => 'devices',
-            'plugins'              => 'plugins',
-            'themes'               => 'themes',
-            'appearance'           => 'themes',
-            'reports'              => 'reports',
-            'ledger'               => 'reports',
-            'activities'           => 'audit',
-            'audit_log'            => 'audit',
-            'my_account'           => 'account',
-            'profile'              => 'account',
-            'system-update'        => 'system',
-        ];
-        $docPath = $docMap[$activePage] ?? '';
-        $data['doc_url'] = 'https://ownpay.org/docs' . ($docPath !== '' ? '/' . $docPath : '');
+        $isGlobalView = (bool) ($data['is_global_view'] ?? false);
+        if ($c->has(\OwnPay\Service\Brand\BrandContext::class)) {
+            $brandContext = $c->get(\OwnPay\Service\Brand\BrandContext::class);
+            if ($brandContext instanceof \OwnPay\Service\Brand\BrandContext) {
+                $isGlobalView = $brandContext->isGlobalView();
+            }
+        }
+        $data['doc_url'] = '';
+        if ($c->has(\OwnPay\Service\System\DocumentationRegistry::class)) {
+            $docs = $c->get(\OwnPay\Service\System\DocumentationRegistry::class);
+            if ($docs instanceof \OwnPay\Service\System\DocumentationRegistry) {
+                $data['doc_url'] = $docs->urlFor($activePage, $isGlobalView);
+            }
+        }
 
         $registry = $c->has('admin.renderer_registry') ? $c->get('admin.renderer_registry') : null;
         if (!$registry instanceof \OwnPay\View\Theme\ThemeRendererRegistry) {
