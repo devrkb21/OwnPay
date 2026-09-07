@@ -367,7 +367,7 @@ final class PaymentIntentCheckoutController
                 }
             }
             if ($paymentNumber === '') {
-                $instrRaw = is_array($instructions) ? implode(' ', $instructions) : (string) $instructions;
+                $instrRaw = is_string($instructionsRaw) ? $instructionsRaw : '';
                 if (preg_match('/(?:01[3-9]\d{8}|01[3-9]\d{2}-\d{6})/i', $instrRaw, $matches)) {
                     $paymentNumber = $matches[0];
                 }

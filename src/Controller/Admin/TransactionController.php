@@ -154,14 +154,15 @@ final class TransactionController
             if (!empty($txn['metadata'])) {
                 $meta = is_string($txn['metadata']) ? json_decode($txn['metadata'], true) : $txn['metadata'];
                 if (is_array($meta)) {
+                    $payDetails = (isset($meta['payment_details']) && is_array($meta['payment_details'])) ? $meta['payment_details'] : [];
                     if (empty($txn['gateway_trx_id'])) {
-                        $manualTrx = $meta['payment_details']['transaction_id'] ?? $meta['transaction_id'] ?? null;
+                        $manualTrx = $payDetails['transaction_id'] ?? ($meta['transaction_id'] ?? null);
                         if (is_string($manualTrx) && trim($manualTrx) !== '') {
                             $txn['gateway_trx_id'] = trim($manualTrx);
                         }
                     }
                     if (empty($txn['sender_account'])) {
-                        $senderNum = $meta['payment_details']['sender_number'] ?? $meta['sender_number'] ?? null;
+                        $senderNum = $payDetails['sender_number'] ?? ($meta['sender_number'] ?? null);
                         if (is_string($senderNum) && trim($senderNum) !== '') {
                             $txn['sender_account'] = trim($senderNum);
                         }

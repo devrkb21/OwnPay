@@ -122,12 +122,19 @@ final class DeveloperController
         }
 
         // Decode events field for Twig compatibility
-        $webhooksList = array_map(function (array $wh) {
-            $evtVal = $wh['events'] ?? '[]';
-            $decoded = json_decode(is_string($evtVal) ? $evtVal : '[]', true);
-            $wh['decoded_events'] = is_array($decoded) ? $decoded : [];
-            return $wh;
-        }, $webhooksList);
+        $formattedWebhooks = [];
+        if (is_iterable($webhooksList)) {
+            foreach ($webhooksList as $wh) {
+                if (!is_array($wh)) {
+                    continue;
+                }
+                $evtVal = $wh['events'] ?? '[]';
+                $decoded = json_decode(is_string($evtVal) ? $evtVal : '[]', true);
+                $wh['decoded_events'] = is_array($decoded) ? $decoded : [];
+                $formattedWebhooks[] = $wh;
+            }
+        }
+        $webhooksList = $formattedWebhooks;
 
         // 3. Webhook signing secret: resolve from brand store profile first, then scoped settings fallback.
         $merchantWebhookSecret = '';
