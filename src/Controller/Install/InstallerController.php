@@ -876,6 +876,18 @@ final class InstallerController
                 @chmod($destEn, 0664);
             }
 
+            // Seed default languages so brand checkouts have a populated language dropdown
+            $langs = [
+                ['en', 'English', '1'],
+                ['bn', 'Bengali', '0'],
+                ['hi', 'Hindi',   '0'],
+                ['ar', 'Arabic',  '0'],
+            ];
+            $ls = $pdo->prepare("INSERT IGNORE INTO {$p}languages (code, name, status, is_default, translations) VALUES (?,?,'active',?,'{}')");
+            foreach ($langs as $l) {
+                $ls->execute($l);
+            }
+
             file_put_contents($this->markerFile, "Installed: " . DateHelper::iso() . "\nVersion: " . Version::CURRENT . "\n", LOCK_EX);
             @chmod($this->markerFile, 0640);
             @unlink($tempEnv);
