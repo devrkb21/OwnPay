@@ -37,6 +37,7 @@ OwnPay allows a single server installation to host unlimited independent brands,
 | :--- | :--- | :--- |
 | **Custom Domain Mapping** | Resolves `HTTP_HOST` in `DomainMiddleware` against `op_domains` records. | Brand-specific checkout URLs (e.g. `pay.mystore.com`). |
 | **Automated DNS Verification** | Verifies ownership via `_ownpay-verification.{domain}` TXT and A-records. | Prevents domain hijacking and misrouting. |
+| **Custom Domain Guide** | Step-by-step DNS setup for major hosting panels (Cloudflare, cPanel, Plesk, and more). | See **[CUSTOM_DOMAINS.md](CUSTOM_DOMAINS.md)**.
 | **Dynamic URL Construction** | `DomainUrlService` constructs checkout, webhook, and status URLs dynamically. | Primary server domain is never exposed to customers. |
 | **Private Admin Hardening** | `DomainMiddleware` throws a hard **404 Not Found** for `/admin/*` on custom domains. | Admin dashboard is strictly restricted to master `APP_DOMAIN`. |
 | **Dynamic Frame Ancestors** | Scopes CSP `frame-ancestors` to DNS-verified merchant domains. | Blocks clickjacking while allowing safe embedded checkouts. |

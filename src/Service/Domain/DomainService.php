@@ -16,6 +16,29 @@ use OwnPay\Support\DateHelper;
 final class DomainService
 {
     /**
+     * Cloudflare's published public IPv4 ranges (https://www.cloudflare.com/ips-v4).
+     *
+     * @var array<int, string>
+     */
+    private const CLOUDFLARE_IPV4_CIDRS = [
+        '103.21.244.0/22',
+        '103.22.200.0/22',
+        '103.31.4.0/22',
+        '104.16.0.0/13',
+        '104.24.0.0/14',
+        '108.162.192.0/18',
+        '131.0.72.0/22',
+        '141.101.64.0/18',
+        '162.158.0.0/15',
+        '172.64.0.0/13',
+        '173.245.48.0/20',
+        '188.114.96.0/20',
+        '190.93.240.0/20',
+        '197.234.240.0/22',
+        '198.41.128.0/17',
+    ];
+
+    /**
      * @var DomainRepository Repository interface for domain records.
      */
     private DomainRepository $domains;
@@ -74,6 +97,114 @@ final class DomainService
         return is_string($parsed) ? $parsed : '127.0.0.1';
     }
 
+    /**
+     * Resolves the server IP shown as the custom-domain A-record hint and used
+     * for A-record verification.
+     *
+     * Honors an explicit APP_SERVER_IP override first: when APP_DOMAIN is
+     * fronted by a CDN / reverse proxy (e.g. Cloudflare), gethostbyname()
+     * returns the proxy's edge IP rather than the origin server IP customers
+     * must point at, which silently breaks DNS verification (DOM-5). Operators
+     * behind such a proxy should set APP_SERVER_IP to the origin's public IPv4.
+     *
+     * @return string The dotted-quad IPv4 hint.
+     */
+    public function serverIp(): string
+    {
+        $serverIpVal = $_ENV['APP_SERVER_IP'] ?? getenv('APP_SERVER_IP') ?: '';
+        $override = is_string($serverIpVal) ? trim($serverIpVal) : '';
+        if ($override !== '' && filter_var($override, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            return $override;
+        }
+
+        $resolved = gethostbyname($this->resolveServerHost());
+        if ($resolved !== '' && filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            return $resolved;
+        }
+
+        return '127.0.0.1';
+    }
+
+    /**
+     * Resolves the CNAME target used as the custom-domain routing hint.
+     *
+     * Returned from configuration (APP_DOMAIN / APP_URL) instead of a
+     * hardcoded value so self-hosted installations show a correct target.
+     *
+     * @return string The host customers should CNAME their domain to.
+     */
+    public function cnameTarget(): string
+    {
+        return $this->resolveServerHost();
+    }
+
+    /**
+     * Detects whether an IP address is a Cloudflare edge address.
+     *
+     * Used to flag when the A-record hint resolved from APP_DOMAIN is a proxy
+     * address instead of the origin server (DOM-5).
+     *
+     * @param string $ip A dotted-quad IPv4 address.
+     * @return bool True if the address falls inside a published Cloudflare IPv4 range.
+     */
+    public static function isCloudflareIp(string $ip): bool
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return false;
+        }
+
+        $ipBytes = inet_pton($ip);
+        if ($ipBytes === false) {
+            return false;
+        }
+
+        foreach (self::CLOUDFLARE_IPV4_CIDRS as $cidr) {
+            if (str_contains($cidr, '/') === false) {
+                continue;
+            }
+            [$network, $bitsStr] = explode('/', $cidr, 2);
+            $prefix = (int) $bitsStr;
+            $netBytes = inet_pton($network);
+            if ($netBytes === false || $prefix < 0 || $prefix > 32) {
+                continue;
+            }
+            if (self::ipv4PrefixMatch($ipBytes, $netBytes, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Compares the leading $prefix bits of two packed IPv4 addresses.
+     *
+     * @param string $ip   Packed 4-byte IPv4 address (inet_pton output).
+     * @param string $net  Packed 4-byte IPv4 network address.
+     * @param int    $prefix Number of leading bits that must match (0-32).
+     * @return bool True when both addresses share the given prefix.
+     */
+    private static function ipv4PrefixMatch(string $ip, string $net, int $prefix): bool
+    {
+        $fullBytes = (int) ($prefix / 8);
+        $remain = $prefix % 8;
+
+        for ($i = 0; $i < $fullBytes; $i++) {
+            if ($ip[$i] !== $net[$i]) {
+                return false;
+            }
+        }
+
+        if ($remain > 0) {
+            $mask = (0xFF << (8 - $remain)) & 0xFF;
+            if ((ord($ip[$fullBytes]) & $mask) !== (ord($net[$fullBytes]) & $mask)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function __construct(
         DomainRepository $domains,
         DnsVerifier $dnsVerifier,
@@ -119,7 +250,7 @@ final class DomainService
 
         $this->events->doAction('domain.mapped', $domain, $merchantId);
 
-        $serverIp = gethostbyname($this->resolveServerHost());
+        $serverIp = $this->serverIp();
 
         return [
             'success'            => true,
@@ -164,7 +295,7 @@ final class DomainService
             ];
         }
 
-        $serverIp = gethostbyname($this->resolveServerHost());
+        $serverIp = $this->serverIp();
         $aRecordOk = $this->dnsVerifier->verifyARecord($domainName, $serverIp);
 
         if (!$aRecordOk) {
