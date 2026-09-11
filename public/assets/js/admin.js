@@ -206,6 +206,14 @@
         }
     });
 
+    document.addEventListener("click", function (e) {
+        if (e.target.closest(".op-notif-delete")) { return; }
+        var item = e.target.closest(".op-notif-item");
+        if (item && item.getAttribute("data-url")) {
+            window.location.href = item.getAttribute("data-url");
+        }
+    });
+
     function updateNotifBadge() {
         var unread = document.querySelectorAll(".op-notif-unread").length;
         var badge = document.querySelector(".op-badge-dot");
