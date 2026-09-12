@@ -5,6 +5,7 @@ namespace OwnPay\Service\Domain;
 
 use OwnPay\Event\EventManager;
 use OwnPay\Repository\DomainRepository;
+use OwnPay\Service\System\HttpClient;
 use OwnPay\Support\DateHelper;
 
 /**
@@ -37,6 +38,20 @@ final class DomainService
         '197.234.240.0/22',
         '198.41.128.0/17',
     ];
+
+    /**
+     * Public-IP echo service used to discover the origin's egress IPv4 when the
+     * web server does not expose a public SERVER_ADDR (e.g. php-fpm behind
+     * nginx on a reverse-proxied / NAT'd host).
+     */
+    private const PUBLIC_IP_SERVICE_URL = 'https://icanhazip.com';
+
+    /**
+     * Transfer timeout (seconds) for the public-IP echo request. Deliberately
+     * short: the hint must not block admin page renders waiting on a slow
+     * third-party service.
+     */
+    private const PUBLIC_IP_SERVICE_TIMEOUT = 3;
 
     /**
      * @var DomainRepository Repository interface for domain records.
@@ -101,28 +116,68 @@ final class DomainService
      * Resolves the server IP shown as the custom-domain A-record hint and used
      * for A-record verification.
      *
-     * Honors an explicit APP_SERVER_IP override first: when APP_DOMAIN is
-     * fronted by a CDN / reverse proxy (e.g. Cloudflare), gethostbyname()
-     * returns the proxy's edge IP rather than the origin server IP customers
-     * must point at, which silently breaks DNS verification (DOM-5). Operators
-     * behind such a proxy should set APP_SERVER_IP to the origin's public IPv4.
+     * Resolution order:
+     *  1. An explicit APP_SERVER_IP override, when it is a valid IPv4 - the
+     *     most deterministic option for operators who need a pinned value.
+     *  2. The web server's SERVER_ADDR, when it is a public IPv4. The web
+     *     server sets this from the network interface that served the request,
+     *     so it stays the origin server's own address even when APP_DOMAIN is
+     *     fronted by a CDN / reverse proxy (e.g. Cloudflare) - unlike
+     *     gethostbyname(APP_DOMAIN), which would return the proxy's edge IP and
+     *     silently break DNS verification (DOM-5).
+     *  3. A public-IP echo service (https://icanhazip.com) when SERVER_ADDR is
+     *     missing or private (php-fpm behind nginx on a proxied / NAT'd host).
+     *     Because the request leaves from the origin itself, the service returns
+     *     the server's genuine public egress IPv4.
+     *  4. 127.0.0.1 as a last-resort hint when nothing above resolves.
+     *
+     * Only configuration and the server's own network state determine the
+     * result; the request Host header is never consulted.
      *
      * @return string The dotted-quad IPv4 hint.
      */
     public function serverIp(): string
     {
-        $serverIpVal = $_ENV['APP_SERVER_IP'] ?? getenv('APP_SERVER_IP') ?: '';
-        $override = is_string($serverIpVal) ? trim($serverIpVal) : '';
+        $overrideVal = $_ENV['APP_SERVER_IP'] ?? getenv('APP_SERVER_IP') ?: '';
+        $override = is_string($overrideVal) ? trim($overrideVal) : '';
         if ($override !== '' && filter_var($override, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
             return $override;
         }
 
-        $resolved = gethostbyname($this->resolveServerHost());
-        if ($resolved !== '' && filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-            return $resolved;
+        $serverAddrVal = $_SERVER['SERVER_ADDR'] ?? '';
+        $serverAddr = is_string($serverAddrVal) ? trim($serverAddrVal) : '';
+        if ($serverAddr !== '' && self::isPublicIpv4($serverAddr)) {
+            return $serverAddr;
+        }
+
+        $egress = '';
+        try {
+            $response = (new HttpClient(self::PUBLIC_IP_SERVICE_TIMEOUT))->get(self::PUBLIC_IP_SERVICE_URL);
+            $egress = trim($response['body']);
+        } catch (\Throwable) {
+            // Unreachable / blocked echo service must never break a page render
+            // or a DNS verification; degrade to the loopback hint below.
+        }
+        if ($egress !== '' && self::isPublicIpv4($egress)) {
+            return $egress;
         }
 
         return '127.0.0.1';
+    }
+
+    /**
+     * Rejects loopback, private, and reserved IPv4 addresses.
+     *
+     * @param string $ip A dotted-quad IPv4 address.
+     * @return bool True only when the address is in public IPv4 space.
+     */
+    private static function isPublicIpv4(string $ip): bool
+    {
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
     }
 
     /**

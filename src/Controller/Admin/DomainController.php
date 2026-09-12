@@ -88,13 +88,13 @@ final class DomainController
             $d['status_pill'] = self::computeStatusPill($d);
         }
 
-        // Custom-domain DNS hints come from configuration, never from the
-        // request Host header (attacker-controlled, must not drive
-        // gethostbyname() lookups - audit DOM-4) and never from hardcoded
-        // values. The CNAME target is the configured APP_DOMAIN / APP_URL host
-        // (DOM-5); the A-record IP honors an explicit APP_SERVER_IP override,
-        // because when the parent domain is proxied by a CDN gethostbyname()
-        // returns the proxy edge IP, not the origin server.
+        // Custom-domain DNS hints come from configuration and the server's own
+        // network state, never from the request Host header (attacker-controlled,
+        // must never drive DNS or network lookups - audit DOM-4) and never from
+        // hardcoded values. The CNAME target is the configured APP_DOMAIN /
+        // APP_URL host (DOM-5); the A-record IP is resolved by DomainService
+        // (APP_SERVER_IP override, else SERVER_ADDR, else a public-IP echo
+        // service) so a Cloudflare-proxied APP_DOMAIN still yields the origin IP.
         $serverIp = $this->domains->serverIp();
 
         return $this->renderAdminPage('admin/domains/index.twig', [

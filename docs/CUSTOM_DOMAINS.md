@@ -44,19 +44,19 @@ Only **one** of these is required. DNS propagation typically takes 5–30 minute
 
 ### If your parent domain is behind Cloudflare
 
-The **Server IP** hint is resolved from your `APP_DOMAIN`. When that domain is **proxied through Cloudflare**, the resolution returns a Cloudflare **edge IP**, not the server that must actually receive traffic. OwnPay detects this and shows a warning on the Domains page.
+The **Server IP** hint is detected from the server itself, never from a DNS lookup of `APP_DOMAIN` (which would return a Cloudflare **edge IP** when the domain is proxied). OwnPay reads the web server's `SERVER_ADDR` when it is a public IPv4, and otherwise asks a public-IP echo service (`https://icanhazip.com`) for the server's egress address. The Cloudflare **edge address** warning on the Domains page only appears when the detected value still lands in Cloudflare's IP ranges (e.g. a stale `APP_SERVER_IP`) — in that case, pin the origin IP as described below.
 
-DNS verification compares the brand domain's **A record** (exact match) against the **Server IP** shown in the UI, so the value OwnPay resolves must be the real origin server. Two ways to get there:
+DNS verification compares the brand domain's **A record** (exact match) against the **Server IP** shown in the UI, so the value shown must be the real origin server. Two ways to get there:
 
-1. **Point the brand domain at your origin (recommended).** Set the origin server's public IPv4 in `.env`:
+1. **Let auto-detection find the origin (default).** On most installs the **Server IP** shown is already the origin's public IPv4 — point the brand domain's **A record** at it. Keep the brand domain itself **DNS only** (grey cloud / not proxied) so its A record resolves to the origin server — a proxied brand domain resolves to Cloudflare edge IPs and still fails verification.
+
+2. **Pin the IP explicitly.** When the server cannot report the public IP itself (e.g. it sits behind NAT and only the entry point is public), set the origin server's public IPv4 in `.env`:
    ```
    APP_SERVER_IP=203.0.113.10
    ```
-   Clear configuration caches if any, reload the Domains page, and point the brand domain's **A record** at that IP. Keep the brand domain itself **DNS only** (grey cloud / not proxied) so its A record resolves to the origin server — a proxied brand domain resolves to Cloudflare edge IPs and still fails verification.
+   Clear configuration caches if any, reload the Domains page, and point the brand domain's **A record** at that IP.
 
-2. **CNAME the brand domain to a host that deterministically resolves to the shown Server IP** (typically the unproxied origin host). OwnPay verifies A records only — a CNAME that resolves to rotating Cloudflare edge IPs will not pass DNS verification, so this path is only reliable when the target's A record matches the Server IP shown.
-
-> If the warning is not shown but you still point to an edge IP, double-check that `APP_SERVER_IP` (when set) matches the IP that port 80/443 actually forwards to.
+> If the warning is shown but auto-detection should be correct, double-check that `APP_SERVER_IP` (when set) matches the IP that port 80/443 actually forwards to.
 
 ---
 
@@ -95,6 +95,6 @@ The issue **#570** also tracks a future enhancement: **auto-configuration throug
 | Symptom | Likely cause | Fix |
 | ------- | ------------ | --- |
 | "TXT record not found" | Record not yet created / token copied wrong / propagated | Re-check Name/Host and Value, wait for propagation, re-run Verify DNS |
-| "A record does not point to …" | Pointed at a proxy edge IP instead of the origin, or DNS hasn't propagated | Set `APP_SERVER_IP` to the origin IP (see above) or use the CNAME option |
+| "A record does not point to …" | Pointed at a proxy edge IP instead of the origin, or DNS hasn't propagated | If the shown **Server IP** is a Cloudflare edge address, pin the origin IP via `APP_SERVER_IP` (see above); otherwise wait for propagation and re-run Verify DNS |
 | SSL stays "Pending" | Certificate not yet issued/renewed for the brand domain | Issue/verify the certificate then click **Check SSL** |
 | Submit button never resolves | Domain stays pending past 7 days | DNS was never verified — domain is auto-removed; re-add and fix DNS |
