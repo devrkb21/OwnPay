@@ -60,7 +60,7 @@ List the steps someone can follow to verify this PR.
 * [ ] Code follows PSR-12
 * [ ] Tenant-scoped reads/writes are handled correctly
 * [ ] CSRF tokens use `SecurityHelpers::csrfToken()`
-* [ ] Database changes follow the `op_` prefix convention
+* [ ] New database tables/columns use the `op_` prefix and follow the column naming conventions
 * [ ] Any gateway/plugin changes were tested end-to-end
 * [ ] I reviewed the diff carefully for mistakes or typos
 
