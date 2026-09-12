@@ -119,20 +119,24 @@ final class DisputeController
     public function show(Request $req): Response
     {
         $this->brand->resolveFromRequest($req);
+        $isGlobal = $this->brand->isGlobalView();
         $mid = $this->brand->getActiveBrandId();
 
-        if ($mid === null) {
+        if ($mid === null && !$isGlobal) {
             $this->session->flashError('Select a brand first.');
             return Response::redirect('/admin/disputes');
         }
 
         $id = (int) $req->param('id');
-        $dispute = $this->disputes->forTenant((int) $mid)->findByIdScoped($id);
+        $dispute = ($isGlobal ? $this->disputes->forAllTenants() : $this->disputes->forTenant((int) $mid))->findScoped($id);
 
         if ($dispute === null) {
             $this->session->flashError('Dispute record not found.');
             return Response::redirect('/admin/disputes');
         }
+
+        // In global view, scope brand-specific lookups to the record's own brand.
+        $recordMid = is_numeric($dispute['merchant_id'] ?? null) ? (int) $dispute['merchant_id'] : (int) $mid;
 
         if (isset($dispute['evidence']) && is_string($dispute['evidence'])) {
             $decoded = json_decode($dispute['evidence'], true);
@@ -144,13 +148,13 @@ final class DisputeController
         $txId = $dispute['transaction_id'] ?? null;
         $transaction = null;
         if (is_int($txId) || is_string($txId) || is_numeric($txId)) {
-            $transaction = $this->txnRepo->forTenant((int) $mid)->findScoped((int) $txId);
+            $transaction = $this->txnRepo->forTenant($recordMid)->findScoped((int) $txId);
             if ($transaction) {
                 if (!empty($transaction['customer_id'])) {
                     $customerRepo = $this->c->get(\OwnPay\Repository\CustomerRepository::class);
                     if ($customerRepo instanceof \OwnPay\Repository\CustomerRepository) {
                         $cId = is_scalar($transaction['customer_id']) ? (int) $transaction['customer_id'] : 0;
-                        $customer = $customerRepo->forTenant((int) $mid)->findScoped($cId);
+                        $customer = $customerRepo->forTenant($recordMid)->findScoped($cId);
                         if ($customer) {
                             $enc = $this->c->get(\OwnPay\Security\FieldEncryptor::class);
                             if ($enc instanceof \OwnPay\Security\FieldEncryptor) {

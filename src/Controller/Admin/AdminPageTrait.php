@@ -334,6 +334,7 @@ trait AdminPageTrait
                     'time' => $this->formatRelativeTime($relativeTime),
                     'read' => strtotime($createdAt) <= $readAt,
                     'icon' => 'payment',
+                    'url' => '/admin/transactions/' . $txId,
                     'timestamp' => strtotime($createdAt),
                 ];
             } else {
@@ -345,6 +346,7 @@ trait AdminPageTrait
                     'time' => $this->formatRelativeTime($relativeTime),
                     'read' => strtotime($createdAt) <= $readAt,
                     'icon' => 'failed',
+                    'url' => '/admin/transactions/' . $txId,
                     'timestamp' => strtotime($createdAt),
                 ];
             }
@@ -365,6 +367,7 @@ trait AdminPageTrait
                 'time' => $this->formatRelativeTime($relativeTime),
                 'read' => strtotime($createdAt) <= $readAt,
                 'icon' => 'dispute',
+                'url' => '/admin/disputes/' . $dspId,
                 'timestamp' => strtotime($createdAt),
             ];
         }
