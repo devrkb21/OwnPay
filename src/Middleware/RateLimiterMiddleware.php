@@ -102,9 +102,11 @@ final class RateLimiterMiddleware
                         $twig = $this->container->get(\Twig\Environment::class);
                         if ($twig instanceof \Twig\Environment) {
                             $cspNonce = '';
-                            if ($this->container->has('csp_nonce')) {
-                                $cspNonceVal = $this->container->get('csp_nonce');
-                                $cspNonce = is_string($cspNonceVal) ? $cspNonceVal : '';
+                            if ($this->container->has(\OwnPay\Security\CspNonce::class)) {
+                                $cspNonceObj = $this->container->get(\OwnPay\Security\CspNonce::class);
+                                if ($cspNonceObj instanceof \OwnPay\Security\CspNonce) {
+                                    $cspNonce = $cspNonceObj->getNonce();
+                                }
                             }
                             $html = $twig->render('error/429.twig', [
                                 'retry_after' => $window,
