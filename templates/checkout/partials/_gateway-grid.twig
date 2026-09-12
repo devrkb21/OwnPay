@@ -1,9 +1,12 @@
-{# GATEWAY GRIDS - dynamically populated from DB #}
-{% set hasCards = gateways.global|default([]) is not empty %}
-{% set hasMfs = gateways.mfs|default([]) is not empty %}
-{% set hasBank = gateways.bank|default([]) is not empty %}
-{% set defaultTab = hasCards ? 'cards' : (hasMfs ? 'mfs' : (hasBank ? 'bank' : 'cards')) %}
-{% set hasAnyGateways = hasCards or hasMfs or hasBank %}
+{# GATEWAY GRIDS - dynamically populated from DB
+   Issue #565: the category flags, the default pane and the has-any flag are computed
+   once in checkout.twig and passed in so this partial and _gateway-tabs.twig always pick
+   the same visible pane; the `??` fallbacks only kick in when rendered standalone. #}
+{% set hasCards = has_cards ?? (gateways.global|default([]) is not empty) %}
+{% set hasMfs = has_mfs ?? (gateways.mfs|default([]) is not empty) %}
+{% set hasBank = has_bank ?? (gateways.bank|default([]) is not empty) %}
+{% set defaultTab = default_tab ?? (hasCards ? 'cards' : (hasMfs ? 'mfs' : (hasBank ? 'bank' : 'cards'))) %}
+{% set hasAnyGateways = has_any ?? (hasCards or hasMfs or hasBank) %}
 
 {# TAB: CARDS (global gateways) #}
 <div id="t-cards" class="ck-tc {{ defaultTab != 'cards' ? 'ck-hidden' : '' }}">
