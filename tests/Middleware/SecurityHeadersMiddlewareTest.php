@@ -133,4 +133,39 @@ final class SecurityHeadersMiddlewareTest extends TestCase
         $this->assertStringContainsString('frame-src', $csp);
         $this->assertStringContainsString('connect-src', $csp);
     }
+
+    public function testContributorsPathCspAllowsGitHubOrigins(): void
+    {
+        $middleware = new SecurityHeadersMiddleware($this->container);
+        $request = new Request([], [], ['HTTP_HOST' => 'ownpay.test', 'REQUEST_URI' => '/admin/contributors']);
+
+        $response = $middleware->handle($request, function (Request $req) {
+            return new Response('OK', 200);
+        });
+
+        $headers = $response->getHeaders();
+        $csp = $headers['Content-Security-Policy'] ?? '';
+
+        $this->assertStringContainsString(
+            "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
+            $csp
+        );
+    }
+
+    public function testOtherAdminPathCspConnectSrcStaysSelf(): void
+    {
+        $middleware = new SecurityHeadersMiddleware($this->container);
+        $request = new Request([], [], ['HTTP_HOST' => 'ownpay.test', 'REQUEST_URI' => '/admin/dashboard']);
+
+        $response = $middleware->handle($request, function (Request $req) {
+            return new Response('OK', 200);
+        });
+
+        $headers = $response->getHeaders();
+        $csp = $headers['Content-Security-Policy'] ?? '';
+
+        $this->assertStringContainsString("connect-src 'self'", $csp);
+        $this->assertStringNotContainsString('api.github.com', $csp);
+        $this->assertStringNotContainsString('raw.githubusercontent.com', $csp);
+    }
 }

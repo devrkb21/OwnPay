@@ -155,13 +155,18 @@ final class SecurityHeadersMiddleware
                 ]);
             }
         } else {
+            $connectSrc = "'self'";
+            if ($path === '/admin/contributors') {
+                $connectSrc .= ' https://api.github.com https://raw.githubusercontent.com';
+            }
+
             $csp = implode('; ', [
                 "default-src 'self'",
                 "script-src 'self' 'nonce-{$nonce}'",
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                 "font-src 'self' https://fonts.gstatic.com",
                 "img-src 'self' data: https:",
-                "connect-src 'self'",
+                'connect-src ' . $connectSrc,
                 "frame-ancestors 'none'",
                 "base-uri 'self'",
                 "form-action 'self'",
