@@ -305,15 +305,17 @@
                 <span>Donate</span>
             </a>
         </div>
-        <div class="op-sidebar-user" id="sidebar-user-btn">
-            <div class="op-sidebar-user-avatar">
-                {{ current_user.name is not empty ? current_user.name|slice(0, 2)|upper : 'AD' }}
-                <span class="op-online-dot"></span>
-            </div>
-            <div class="op-sidebar-user-info">
-                <div class="op-sidebar-user-name">{{ current_user.name|default('Admin') }}</div>
-                <div class="op-sidebar-user-role">{{ current_user.role|default('Administrator') }}</div>
-            </div>
+        <div class="op-sidebar-user">
+            <a href="/admin/my-account" class="op-sidebar-user-profile" title="{{ __('menu.my_account') }}">
+                <div class="op-sidebar-user-avatar">
+                    {{ current_user.name is not empty ? current_user.name|slice(0, 2)|upper : 'AD' }}
+                    <span class="op-online-dot"></span>
+                </div>
+                <div class="op-sidebar-user-info">
+                    <div class="op-sidebar-user-name">{{ current_user.name|default('Admin') }}</div>
+                    <div class="op-sidebar-user-role">{{ current_user.role|default('Administrator') }}</div>
+                </div>
+            </a>
             <button class="op-sidebar-user-ellipsis" id="sidebar-user-menu-btn" type="button" aria-label="User menu">
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>

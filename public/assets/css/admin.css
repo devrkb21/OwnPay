@@ -792,6 +792,16 @@ code {
   transform: translateX(2px);
 }
 
+.op-sidebar-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
 .op-sidebar-user-avatar {
   width: 34px;
   height: 34px;
