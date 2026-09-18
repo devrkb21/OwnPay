@@ -133,6 +133,7 @@ final class BrandController
         $timezoneField = $data['timezone'] ?? 'Asia/Dhaka';
         $currencyField = $data['default_currency'] ?? 'BDT';
         $statusField = $data['status'] ?? 'active';
+        $languageField = $data['language'] ?? 'en';
 
         $defaultSettings = [
             'logo' => null,
@@ -141,7 +142,7 @@ final class BrandController
             'accent_color' => '#0F766E',
             'support_email' => is_string($emailField) ? $emailField : '',
             'footer_text' => '',
-            'language' => 'en',
+            'language' => is_string($languageField) && $languageField !== '' ? $languageField : 'en',
             'checkout_success_msg' => '',
             'checkout_pending_msg' => '',
             'checkout_failed_msg' => '',
@@ -286,6 +287,16 @@ final class BrandController
         $timezoneField = $data['timezone'] ?? 'Asia/Dhaka';
         $currencyField = $data['default_currency'] ?? 'BDT';
         $statusField = $data['status'] ?? 'active';
+        $languageField = $data['language'] ?? '';
+
+        $settingsVal = $existing['settings'] ?? '';
+        $settingsArr = is_string($settingsVal) && $settingsVal !== '' ? json_decode($settingsVal, true) : [];
+        if (!is_array($settingsArr)) {
+            $settingsArr = [];
+        }
+        if (is_string($languageField) && $languageField !== '') {
+            $settingsArr['language'] = $languageField;
+        }
 
         $updateData = [
             'name'             => $name,
@@ -295,7 +306,7 @@ final class BrandController
             'default_currency' => is_string($currencyField) ? $currencyField : 'BDT',
             'status'           => is_string($statusField) ? $statusField : 'active',
             'logo_path'        => $existing['logo_path'],
-            'settings'         => $existing['settings'],
+            'settings'         => json_encode($settingsArr, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ];
         $this->merchants->updateBrand($id, $updateData);
 

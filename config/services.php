@@ -330,7 +330,7 @@ return static function (\OwnPay\Container $c): void {
 
         /**
          * Expose CSP nonce to all templates.
-         * SecurityHeadersMiddleware stores nonce in Container as 'csp_nonce'.
+         * SecurityHeadersMiddleware sets the nonce on the pre-bound CspNonce singleton.
          * Use lazy proxy since nonce isn't generated until middleware runs.
          */
         $twig->addGlobal('csp_nonce', new class($c) implements \Stringable {
@@ -338,7 +338,13 @@ return static function (\OwnPay\Container $c): void {
             public function __construct(\OwnPay\Container $c) { $this->c = $c; }
             public function __toString(): string
             {
-                return $this->c->has('csp_nonce') && is_string($n = $this->c->get('csp_nonce')) ? $n : '';
+                if ($this->c->has(\OwnPay\Security\CspNonce::class)) {
+                    $nonce = $this->c->get(\OwnPay\Security\CspNonce::class);
+                    if ($nonce instanceof \OwnPay\Security\CspNonce) {
+                        return $nonce->getNonce();
+                    }
+                }
+                return '';
             }
         });
         return $twig;

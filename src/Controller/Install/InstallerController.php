@@ -858,6 +858,7 @@ final class InstallerController
                 ['payment',  'success_url',     '',                        'string'],
                 ['payment',  'cancel_url',      '',                        'string'],
                 ['general',  'base_currency',   $currency,                 'string'],
+                ['general',  'exchange_rate_mode', 'auto',                'string'],
             ];
             $stmt = $pdo->prepare("INSERT IGNORE INTO {$p}system_settings (group_name, key_name, value, type) VALUES (?,?,?,?)");
             foreach ($seeds as $s) {
@@ -876,9 +877,30 @@ final class InstallerController
                 @chmod($destEn, 0664);
             }
 
+            // Seed default languages so brand checkouts have a populated language dropdown
+            $langs = [
+                ['en', 'English', '1'],
+                ['bn', 'Bengali', '0'],
+                ['hi', 'Hindi',   '0'],
+                ['ar', 'Arabic',  '0'],
+            ];
+            $ls = $pdo->prepare("INSERT IGNORE INTO {$p}languages (code, name, status, is_default, translations) VALUES (?,?,'active',?,'{}')");
+            foreach ($langs as $l) {
+                $ls->execute($l);
+            }
+
             file_put_contents($this->markerFile, "Installed: " . DateHelper::iso() . "\nVersion: " . Version::CURRENT . "\n", LOCK_EX);
             @chmod($this->markerFile, 0640);
             @unlink($tempEnv);
+
+            // Best-effort initial exchange rate sync: populate op_exchange_rates so
+            // non-base-currency conversions work immediately on a fresh install.
+            // Uses the same CurrencyUpdateJob as the manual "Sync rates" action and
+            // the cron job. A failure is non-fatal - it only logs, and rates can be
+            // synced later from the admin panel or via cron. The sync runs after the
+            // .env and marker are committed so an interrupted install is never
+            // re-armed by a mid-sync failure.
+            $this->syncInitialExchangeRates($pdo, $p);
 
             $response = ['success' => true, 'message' => 'Installation complete'];
             if ($envBackup !== null) {
@@ -893,6 +915,42 @@ final class InstallerController
                 $error = 'Installation failed. Please check your database settings and try again.';
             }
             return Response::json(['success' => false, 'error' => $error], 500);
+        }
+    }
+
+    /**
+     * Best-effort initial exchange rate synchronization at install time.
+     *
+     * Populates op_exchange_rates immediately after a fresh install so
+     * non-base-currency conversions work out of the box. Runs the same
+     * CurrencyUpdateJob as the manual "Sync rates" action and the cron
+     * job. A failure must never block or re-arm installation - it only
+     * logs, and rates can be synced later from the admin panel or cron.
+     *
+     * The Database wrapper rewrites the job's canonical op_* table
+     * references to the install's configured prefix, so this works for
+     * both the default prefix and a custom DB_PREFIX.
+     *
+     * @param \PDO   $pdo    The database connection opened by finalize().
+     * @param string $prefix The validated table prefix parsed from .env.temp.
+     * @return void
+     */
+    private function syncInitialExchangeRates(\PDO $pdo, string $prefix): void
+    {
+        try {
+            $db = new \OwnPay\Core\Database($pdo, $prefix);
+            // Bounded timeouts keep an offline/air-gapped install from stalling
+            // the finalize response: the job itself already treats a fetch
+            // failure as non-fatal.
+            $http = new \OwnPay\Service\System\HttpClient(5, 3);
+            $job = new \OwnPay\Cron\CurrencyUpdateJob($db, $http);
+            $result = $job->run(true);
+            if (empty($result['success'])) {
+                $error = is_string($result['error'] ?? null) ? $result['error'] : 'unknown error';
+                error_log("[OwnPay] Installer: initial exchange rate sync failed - {$error}");
+            }
+        } catch (\Throwable $e) {
+            error_log('[OwnPay] Installer: initial exchange rate sync failed - ' . $e->getMessage());
         }
     }
 

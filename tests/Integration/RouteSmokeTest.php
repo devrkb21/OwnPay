@@ -31,6 +31,15 @@ final class RouteSmokeTest extends IntegrationTestCase
             $cspNonce = $container->get(CspNonce::class);
             $this->assertInstanceOf(CspNonce::class, $cspNonce);
             $this->assertSame($r->getAttribute('csp_nonce'), $cspNonce->getNonce());
+
+            // Twig global must also resolve the nonce from the singleton.
+            $twig = $container->get(\Twig\Environment::class);
+            $this->assertInstanceOf(\Twig\Environment::class, $twig);
+            $cspGlobal = $twig->getGlobals()['csp_nonce'] ?? null;
+            $this->assertInstanceOf(\Stringable::class, $cspGlobal);
+            $this->assertNotEmpty((string) $cspGlobal);
+            $this->assertSame($r->getAttribute('csp_nonce'), (string) $cspGlobal);
+
             return Response::html('<html><body>OK</body></html>', 200);
         });
 

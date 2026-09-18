@@ -88,21 +88,21 @@ final class DomainController
             $d['status_pill'] = self::computeStatusPill($d);
         }
 
-        // Use the configured APP_DOMAIN for the server-IP hint. The request
-        // Host header is attacker-controlled and must never drive
-        // gethostbyname() lookups (audit DOM-4). On misconfigured installs
-        // (APP_DOMAIN unset) we degrade to '127.0.0.1' rather than leaking
-        // through client input.
-        $appDomainVal = $_ENV['APP_DOMAIN'] ?? getenv('APP_DOMAIN') ?: '';
-        $serverHost = is_string($appDomainVal) && $appDomainVal !== ''
-            ? $appDomainVal
-            : '127.0.0.1';
-        $serverHost = (string) (parse_url('https://' . $serverHost, PHP_URL_HOST) ?: '127.0.0.1');
+        // Custom-domain DNS hints come from configuration and the server's own
+        // network state, never from the request Host header (attacker-controlled,
+        // must never drive DNS or network lookups - audit DOM-4) and never from
+        // hardcoded values. The CNAME target is the configured APP_DOMAIN /
+        // APP_URL host (DOM-5); the A-record IP is resolved by DomainService
+        // (APP_SERVER_IP override, else SERVER_ADDR, else a public-IP echo
+        // service) so a Cloudflare-proxied APP_DOMAIN still yields the origin IP.
+        $serverIp = $this->domains->serverIp();
 
         return $this->renderAdminPage('admin/domains/index.twig', [
-            'domains'     => $list,
-            'active_page' => 'domains',
-            'server_ip'   => gethostbyname($serverHost),
+            'domains'           => $list,
+            'active_page'       => 'domains',
+            'server_ip'         => $serverIp,
+            'cname_target'      => $this->domains->cnameTarget(),
+            'server_ip_proxied' => DomainService::isCloudflareIp($serverIp),
         ]);
     }
 

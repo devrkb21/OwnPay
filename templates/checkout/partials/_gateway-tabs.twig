@@ -4,11 +4,16 @@
    empty "Cards" and "Net Banking" tabs that confused customers. We render
    a tab only when its corresponding gateway list is non-empty. When only
    one category has gateways, the entire tab bar is hidden because there is
-   nothing to switch between. #}
-{% set hasCards = gateways.global|default([]) is not empty %}
-{% set hasMfs = gateways.mfs|default([]) is not empty %}
-{% set hasBank = gateways.bank|default([]) is not empty %}
-{% set defaultTab = hasCards ? 'cards' : (hasMfs ? 'mfs' : (hasBank ? 'bank' : 'cards')) %}
+   nothing to switch between.
+
+   Issue #565: the category flags and the default pane are computed once in
+   checkout.twig and passed in as has_cards/has_mfs/has_bank/default_tab so this
+   partial and _gateway-grid.twig always agree; the `??` fallbacks only kick in
+   when the partial is rendered standalone. #}
+{% set hasCards = has_cards ?? (gateways.global|default([]) is not empty) %}
+{% set hasMfs = has_mfs ?? (gateways.mfs|default([]) is not empty) %}
+{% set hasBank = has_bank ?? (gateways.bank|default([]) is not empty) %}
+{% set defaultTab = default_tab ?? (hasCards ? 'cards' : (hasMfs ? 'mfs' : (hasBank ? 'bank' : 'cards'))) %}
 {% set tabCount = (hasCards ? 1 : 0) + (hasMfs ? 1 : 0) + (hasBank ? 1 : 0) %}
 
 {% if tabCount > 1 %}
