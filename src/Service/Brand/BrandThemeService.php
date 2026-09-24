@@ -176,7 +176,8 @@ final class BrandThemeService
      */
     private function resolveVal(array $brandSettings, array $merchantSettings, string $key, string $fallback): string
     {
-        if (!empty($brandSettings[$key])) {
+        // Check key existence instead of value truthiness to properly handle '0' values
+        if ($key !== '' && array_key_exists($key, $brandSettings)) {
             return $brandSettings[$key];
         }
         $val = $merchantSettings[$key] ?? null;

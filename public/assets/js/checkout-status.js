@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // 3. Auto-refresh for pending/processing status pages (every 5 seconds)
-    if (document.querySelector(".st-refresh-tip")) {
+    if (document.querySelector(".st-refresh-tip") && !document.getElementById("countdown-wrapper")) {
         setTimeout(function () {
             window.location.reload();
         }, 5000);
