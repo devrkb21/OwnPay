@@ -24,6 +24,8 @@ use OwnPay\View\Theme\ThemeRendererRegistry;
 use OwnPay\Controller\Checkout\PaymentIntentCheckoutController;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 use ReflectionMethod;
 use ReflectionProperty;
 
@@ -111,6 +113,9 @@ final class BrandManualPaymentAutoRedirectTest extends TestCase
         $this->assertNotNull($captured);
         $this->assertTrue($captured['is_manual_pending']);
         $this->assertSame('', $captured['merchant_redirect_url'], 'Redirect URL should be empty string to suppress countdown');
+        // When redirect is disabled the original processing status is preserved;
+        // the template override (is_manual_pending) drives the review UI instead.
+        $this->assertSame('processing', $captured['intent_status']);
     }
 
     public function testRenderStatusAllowsRedirectAndSetsPendingStatusWhenEnabled(): void
@@ -181,6 +186,52 @@ final class BrandManualPaymentAutoRedirectTest extends TestCase
         $this->assertFalse($captured['is_manual_pending']);
         $this->assertSame('https://merchant.test/wc-api/return', $captured['merchant_redirect_url']);
         $this->assertSame('processing', $captured['intent_status']);
+    }
+
+    public function testPendingTemplateShowsReviewBadgeWhenManualPending(): void
+    {
+        $html = $this->renderPending([
+            'status' => 'processing',
+            'txn' => ['trx_id' => 'OP-TXN-123', 'amount' => '500.00', 'currency' => 'BDT', 'currency_symbol' => '৳', 'gateway_slug' => 'bkash'],
+            'is_manual_pending' => true,
+        ]);
+        $this->assertStringContainsString('st-badge-review', $html);
+        $this->assertStringNotContainsString('st-badge-processing', $html);
+        $this->assertStringContainsString('Under Review', $html);
+    }
+
+    public function testPendingTemplateShowsProcessingBadgeWithoutManualPending(): void
+    {
+        $html = $this->renderPending([
+            'status' => 'processing',
+            'txn' => ['trx_id' => 'OP-TXN-123', 'amount' => '500.00', 'currency' => 'BDT', 'currency_symbol' => '৳', 'gateway_slug' => 'stripe'],
+            'is_manual_pending' => false,
+        ]);
+        $this->assertStringContainsString('st-badge-processing', $html);
+        $this->assertStringNotContainsString('st-badge-review', $html);
+        $this->assertStringContainsString('Processing', $html);
+    }
+
+    public function testPendingTemplateHandlesMissingManualPendingFlag(): void
+    {
+        $html = $this->renderPending([
+            'status' => 'processing',
+            'txn' => ['trx_id' => 'OP-TXN-123', 'amount' => '500.00', 'currency' => 'BDT', 'currency_symbol' => '৳', 'gateway_slug' => 'stripe'],
+        ]);
+        $this->assertStringContainsString('st-badge-processing', $html);
+        $this->assertStringNotContainsString('st-badge-review', $html);
+        $this->assertStringContainsString('Processing', $html);
+    }
+
+    public function testPendingTemplateShowsReviewBadgeForPendingReviewStatus(): void
+    {
+        $html = $this->renderPending([
+            'status' => 'pending_review',
+            'txn' => ['trx_id' => 'OP-TXN-123', 'amount' => '500.00', 'currency' => 'BDT', 'currency_symbol' => '৳', 'gateway_slug' => 'nagad'],
+        ]);
+        $this->assertStringContainsString('st-badge-review', $html);
+        $this->assertStringNotContainsString('st-badge-processing', $html);
+        $this->assertStringContainsString('Under Review', $html);
     }
 
     /**
@@ -283,5 +334,21 @@ final class BrandManualPaymentAutoRedirectTest extends TestCase
         $method = new ReflectionMethod($controller, 'renderStatus');
         $method->setAccessible(true);
         $method->invoke($controller, $ref, $status, $intent);
+    }
+
+    private function renderPending(array $ctx): string
+    {
+        $loader = new FilesystemLoader(dirname(__DIR__, 2) . '/templates');
+        $twig = new Environment($loader, ['cache' => false]);
+        $twig->addFunction(new \Twig\TwigFunction('hook', fn (string $name) => ''));
+        $twig->addFunction(new \Twig\TwigFunction('locale', fn (): string => 'en'));
+        $twig->addFunction(new \Twig\TwigFunction('__', fn (string $key, ...$args) => $key));
+        $twig->addFunction(new \Twig\TwigFunction('enqueued_assets', fn (string $type) => '', ['is_safe' => ['html']]));
+        return $twig->render('checkout/partials/_pending.twig', array_merge([
+            'brand' => ['name' => 'Test Merchant'],
+            'lang' => ['pending_msg' => 'Your payment is under review.'],
+            'status_label' => 'Payment Under Review',
+            'intent_status' => 'pending',
+        ], $ctx));
     }
 }
