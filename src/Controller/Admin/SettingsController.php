@@ -711,7 +711,7 @@ final class SettingsController
             if ($logoFile !== null && ($logoFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
                 try {
                     if (isset($logoFile['name'], $logoFile['tmp_name']) && is_string($logoFile['name']) && is_string($logoFile['tmp_name'])) {
-                        $logoPath = $fs->storePublicUpload($logoFile, 'brands');
+                        $logoPath = $fs->storeBrandingUpload($logoFile, 'brands');
                         $saved['logo'] = $logoPath;
                     }
                 } catch (\Throwable $e) {
@@ -723,7 +723,7 @@ final class SettingsController
             if ($faviconFile !== null && ($faviconFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
                 try {
                     if (isset($faviconFile['name'], $faviconFile['tmp_name']) && is_string($faviconFile['name']) && is_string($faviconFile['tmp_name'])) {
-                        $faviconPath = $fs->storePublicUpload($faviconFile, 'brands');
+                        $faviconPath = $fs->storeBrandingUpload($faviconFile, 'brands');
                         $saved['favicon'] = $faviconPath;
                     }
                 } catch (\Throwable $e) {
@@ -758,7 +758,7 @@ final class SettingsController
 
             try {
                 if (isset($file['name'], $file['tmp_name']) && is_string($file['name']) && is_string($file['tmp_name'])) {
-                    $path = $fs->storePublicUpload($file, 'branding');
+                    $path = $fs->storeBrandingUpload($file, 'branding');
                     $this->settingsRepo->set('branding', $field, $path);
                     $saved[$field] = $path;
                 }

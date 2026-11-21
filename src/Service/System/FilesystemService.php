@@ -35,6 +35,20 @@ final class FilesystemService
     private const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'pdf', 'zip']; // Keep it minimum as possible for security.
 
     /**
+     * Extensions accepted for branding images (logos, favicons). These are served from the
+     * payment origin, so no SVG (script risk), PDF or ZIP. Must stay a subset of
+     * ALLOWED_EXTENSIONS; the MIME signature check of moveValidatedUpload() still applies.
+     *
+     * @var string[]
+     */
+    public const BRANDING_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'ico'];
+
+    /**
+     * Largest accepted branding image, in bytes (2 MiB).
+     */
+    public const BRANDING_MAX_BYTES = 2 * 1024 * 1024;
+
+    /**
      * Initialises the filesystem service.
      *
      * @param string|null $baseDir          Private base folder absolute path. Defaults to the system storage directory.
@@ -81,6 +95,40 @@ final class FilesystemService
     {
         $relative = $this->moveValidatedUpload($file, $this->publicUploadsDir, $subDir);
         return '/assets/uploads/' . $relative;
+    }
+
+    /**
+     * Stores a branding image (brand logo, favicon, light/dark application logo) under the
+     * PUBLIC web root. Stricter than {@see storePublicUpload()}: only png/jpg/jpeg/webp/ico and
+     * at most BRANDING_MAX_BYTES; then the same extension, MIME signature and move logic.
+     *
+     * @param array{error: int, name: string, tmp_name: string} $file Associative array structure containing PHP upload metadata.
+     * @param string $subDir Sub-directory path where the file should be deposited.
+     * @return string Web-root-relative URL (leading slash) of the stored file.
+     * @throws \RuntimeException If the type or size is not allowed, or the upload fails validation.
+     */
+    public function storeBrandingUpload(array $file, string $subDir = 'branding'): string
+    {
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            throw new \RuntimeException('Upload error: ' . $file['error']);
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, self::BRANDING_EXTENSIONS, true)) {
+            throw new \RuntimeException('Branding image must be PNG, JPG, WebP or ICO');
+        }
+
+        // Size of the file actually received, not the client-reported size.
+        clearstatcache(true, $file['tmp_name']);
+        $size = @filesize($file['tmp_name']);
+        if ($size === false) {
+            throw new \RuntimeException('Failed to read uploaded file size');
+        }
+        if ($size > self::BRANDING_MAX_BYTES) {
+            throw new \RuntimeException('Branding image is larger than 2 MB');
+        }
+
+        return $this->storePublicUpload($file, $subDir);
     }
 
     /**
