@@ -1587,12 +1587,12 @@
 
 <form id="logo-upload-form" method="POST" action="/admin/settings/upload" enctype="multipart/form-data" class="op-hidden">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <input type="file" name="site_logo" accept="image/*" id="logo-file-input" class="op-hidden">
+    <input type="file" name="site_logo" accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon" id="logo-file-input" class="op-hidden">
 </form>
 
 <form id="favicon-upload-form" method="POST" action="/admin/settings/upload" enctype="multipart/form-data" class="op-hidden">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <input type="file" name="site_favicon" accept="image/*,.ico" id="favicon-file-input" class="op-hidden">
+    <input type="file" name="site_favicon" accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon" id="favicon-file-input" class="op-hidden">
 </form>
 
     {% if not is_brand_view %}
